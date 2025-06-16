@@ -5,15 +5,18 @@ from langchain_openai import ChatOpenAI
 from langchain_openai import AzureChatOpenAI
 from langchain_azure_ai.chat_models import AzureAIChatCompletionsModel
 
+
 # API KEY 정보로드
 load_dotenv()
 
+
 def create_chat_model(client: str):
     if client == "azure":
-        return AzureAIChatCompletionsModel(
-            endpoint=os.environ["AZURE_INFERENCE_ENDPOINT"],
-            credential=os.environ["AZURE_INFERENCE_CREDENTIAL"],
-            model=os.getenv("CHAT_MODEL"),
+        return AzureChatOpenAI(
+            azure_endpoint=os.environ["AZURE_INFERENCE_ENDPOINT"],
+            api_key=os.environ["AZURE_INFERENCE_CREDENTIAL"],
+            azure_deployment=os.getenv("CHAT_MODEL"),
+            api_version=os.getenv("AZURE_INFERENCE_API_VERSION"),
         )
     elif client == "openai":
         return ChatOpenAI(model=os.getenv("CHAT_MODEL"))
@@ -25,6 +28,9 @@ def test_chat_model():
         HumanMessage(content="안녕!"),
     ]
 
-    model = create_chat_model("openai")
+    model = create_chat_model("azure")
 
     print(model.invoke(messages).content)
+
+
+test_chat_model()

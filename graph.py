@@ -472,43 +472,53 @@ def create_excel_node(state: State) -> State:
         # 엑셀 파일 생성
         df = pd.DataFrame(data_dict)
 
-        # 현재 시간을 파일명에 포함
-        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-        excel_filename = f"work_summary_{current_time}.xlsx"
-
-        # 여기 수정해야힘
-        # # DataFrame을 엑셀 파일로 변환
-        # excel_buffer = io.BytesIO()
-        # df.to_excel(excel_buffer, index=False, engine="openpyxl")
-        # excel_buffer.seek(0)
-
-        # # Azure Blob Storage 연결
-        # connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-        # container_name = os.getenv("AZURE_STORAGE_CONTAINER_NAME")
-
-        # blob_service_client = BlobServiceClient.from_connection_string(
-        #     connection_string
-        # )
-        # container_client = blob_service_client.get_container_client(container_name)
-
-        # # Blob에 파일 업로드
-        # blob_client = container_client.get_blob_client(excel_filename)
-        # blob_client.upload_blob(excel_buffer.getvalue(), overwrite=True)
-
-        # # Blob URL 생성
-        # blob_url = blob_client.url
-
-        # print(f"엑셀 파일이 Azure Blob Storage에 업로드되었습니다: {blob_url}")
-
-        # # state에 blob URL 저장
-        # state["excel_obj"] = {"blob_url": blob_url}
-
-        return {"messages": [AIMessage(content=f"엑셀 파일이 생성되었습니다.")]}
+        return {
+            "messages": [
+                AIMessage(content=f"엑셀 데이터를 생성하였습니다.\n\n{data_dict}")
+            ],
+            "excel_obj": data_dict,
+        }
 
     except Exception as e:
         return {
             "messages": [AIMessage(content=f"엑셀 파일 생성 중 오류 발생: {str(e)}")]
         }
+
+
+def upload_excel_to_blob(state: State) -> State:
+    print("======== upload_excel_to_blob ==========")
+
+    # 현재 시간을 파일명에 포함
+    current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+    excel_filename = f"work_summary_{current_time}.xlsx"
+
+    # 여기 수정해야힘
+    # # DataFrame을 엑셀 파일로 변환
+    # excel_buffer = io.BytesIO()
+    # df.to_excel(excel_buffer, index=False, engine="openpyxl")
+    # excel_buffer.seek(0)
+
+    # # Azure Blob Storage 연결
+    # connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+    # container_name = os.getenv("AZURE_STORAGE_CONTAINER_NAME")
+
+    # blob_service_client = BlobServiceClient.from_connection_string(
+    #     connection_string
+    # )
+    # container_client = blob_service_client.get_container_client(container_name)
+
+    # # Blob에 파일 업로드
+    # blob_client = container_client.get_blob_client(excel_filename)
+    # blob_client.upload_blob(excel_buffer.getvalue(), overwrite=True)
+
+    # # Blob URL 생성
+    # blob_url = blob_client.url
+
+    # print(f"엑셀 파일이 Azure Blob Storage에 업로드되었습니다: {blob_url}")
+
+    # # state에 blob URL 저장
+    # state["excel_obj"] = {"blob_url": blob_url}
+    pass
 
 
 def create_graph():
@@ -524,10 +534,12 @@ def create_graph():
     workflow.add_node("github_node", create_github_commit_message_node)
     workflow.add_node("summary_node", create_summary_node)
     workflow.add_node("excel_node", create_excel_node)
+    workflow.add_node("upload_excel_to_blob", upload_excel_to_blob)
 
     workflow.add_edge(START, "extraction_node")
     workflow.add_edge("github_token_node", "github_node")
-    workflow.add_edge("excel_node", END)
+    workflow.add_edge("excel_node", "upload_excel_to_blob")
+    workflow.add_edge("upload_excel_to_blob", END)
 
     # 엣지 추가
     workflow.add_conditional_edges(
