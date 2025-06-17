@@ -29,10 +29,13 @@ if "graph" not in st.session_state:
     st.session_state["graph"] = gh.create_graph()
 
 if "llm" not in st.session_state:
-    st.session_state["llm"] = create_chat_model("openai")
+    st.session_state["llm"] = create_chat_model("azure")
 
 if "config" not in st.session_state:
     st.session_state["config"] = {"configurable": {"thread_id": "1"}}
+
+if "access_token" not in st.session_state:
+    st.session_state["access_token"] = None
 
 
 # 새로운 메시지를 추가
@@ -90,64 +93,118 @@ with st.sidebar:
 # 1. dialog 함수 정의
 @st.dialog("동영상 파일 업로드")
 def upload_dialog():
-    uploaded_file = st.file_uploader(
-        "동영상 파일을 선택하세요", type=["mp4", "mov", "avi"]
-    )
+    uploaded_file = st.file_uploader("동영상 파일을 선택하세요", type=["mp4"])
+
+    input = {
+        "file_summary": "",
+    }
+
     if uploaded_file is not None:
 
         st.info("Azure Video Indexer에 영상을 업로드 중입니다...")
+
         access_token = st.session_state["access_token"]
 
-        existing_video_id = find_video_id_by_name(access_token, uploaded_file)
-        print(existing_video_id)
-        if existing_video_id:
-            delete_video(access_token, existing_video_id)
+        if access_token is None:
+            error_message = "액세스 토큰이 등록되지 않았습니다."
+            st.session_state.messages.append(
+                {"role": "assistant", "content": error_message}
+            )
+            st.chat_message("assistant", avatar="🤖").markdown(error_message)
 
-        video_id = upload_video(access_token, uploaded_file)
-        st.success("업로드 완료! 영상 분석 중... (최대 1~2분 소요)")
+            for step in gh.process(
+                input, graph, st.session_state["config"], file_success=True
+            ):
+                # messages의 마지막 메시지를 표시
+                last_message = step["messages"][-1]
+                if last_message.type == "ai":
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": last_message.content}
+                    )
+            st.rerun()
 
-        # 인덱싱이 끝날 때까지 대기
-        progress = st.progress(0)
-        # for i in range(20):
-        i = 0
-        while True:
-            time.sleep(10)
-            index = get_video_index(access_token, video_id)
-            state = index["state"]
-            print(state)
-            progress.progress((i + 1) * 5)
-            if state == "Processed":
-                break
-            i += 1
+        try:
+            existing_video_id = find_video_id_by_name(access_token, uploaded_file)
+            print(existing_video_id)
+            if existing_video_id:
+                delete_video(access_token, existing_video_id)
 
-        progress.progress(100)
-        summary = create_summary(access_token, video_id)
-        summary_id = summary["id"]
-        st.success("분석 완료! 요약 중... ")
+            video_id = upload_video(access_token, uploaded_file)
+            st.success("업로드 완료! 영상 분석 중... (최대 1~2분 소요)")
 
-        print(summary_id)
+            # 인덱싱이 끝날 때까지 대기
+            progress = st.progress(0)
+            # for i in range(20):
+            i = 0
+            while True:
+                time.sleep(10)
+                index = get_video_index(access_token, video_id)
+                state = index["state"]
+                print(state)
+                progress.progress((i + 1) * 5)
+                if state == "Processed":
+                    break
+                i += 1
 
-        # 인덱싱이 끝날 때까지 대기
-        progress = st.progress(0)
-        j = 0
+            progress.progress(100)
+            summary = create_summary(access_token, video_id)
+            summary_id = summary["id"]
+            st.success("분석 완료! 요약 중... ")
 
-        while True:
-            time.sleep(10)
-            summary = get_summary(access_token, video_id, summary_id)
-            state = summary["state"]
-            print(state)
-            progress.progress((j + 1) * 5)
-            if state == "Processed":
-                break
-            j += 1
+            print(summary_id)
 
-        progress.progress(100)
+            # 인덱싱이 끝날 때까지 대기
+            progress = st.progress(0)
+            j = 0
 
-        print(summary["summary"])
+            while True:
+                time.sleep(10)
+                summary = get_summary(access_token, video_id, summary_id)
+                state = summary["state"]
+                print(state)
+                progress.progress((j + 1) * 5)
+                if state == "Processed":
+                    break
+                j += 1
 
-        st.success("요약 완료! ")
+            progress.progress(100)
 
-        st.session_state["summary"] = summary["summary"]
+            print(summary["summary"])
+
+            st.success("요약 완료! ")
+
+            file_summary = summary["summary"]
+            input["file_summary"] = file_summary
+
+            for step in gh.process(
+                input, graph, st.session_state["config"], file_success=True
+            ):
+                # messages의 마지막 메시지를 표시
+                last_message = step["messages"][-1]
+                if last_message.type == "ai":
+                    # st.chat_message("assistant", avatar="🤖").markdown(last_message.content)
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": last_message.content}
+                    )
+
+            st.rerun()
+        except Exception as e:
+            error_message = "파일 분석 중 오류가 발생했습니다."
+            st.session_state.messages.append(
+                {"role": "assistant", "content": error_message}
+            )
+            st.chat_message("assistant", avatar="🤖").markdown(error_message)
+
+            for step in gh.process(
+                input, graph, st.session_state["config"], file_success=True
+            ):
+                # messages의 마지막 메시지를 표시
+                last_message = step["messages"][-1]
+                if last_message.type == "ai":
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": last_message.content}
+                    )
+            st.rerun()
 
 
 print_messages()
@@ -166,6 +223,7 @@ if user_input := st.chat_input("메세지를 입력하세요"):
     }
 
     github = False
+    file_upload = False
 
     if len(st.session_state["messages"]) > 1:
         previous_message = st.session_state["messages"][-2]["content"]
@@ -174,9 +232,13 @@ if user_input := st.chat_input("메세지를 입력하세요"):
             == "깃허브 사용자 ID와 토큰을 입력해주세요. ex)username, ghp_123..."
         ):
             github = True
+        elif previous_message == "추가적으로 정리할 파일이 있나요?":
+            file_upload = True
 
     # process 함수를 사용하여 상태 변화를 스트리밍
-    for step in gh.process(input, graph, st.session_state["config"], github):
+    for step in gh.process(
+        input, graph, st.session_state["config"], github=github, file_upload=file_upload
+    ):
         # messages의 마지막 메시지를 표시
         last_message = step["messages"][-1]
         if last_message.type == "ai":
@@ -184,3 +246,14 @@ if user_input := st.chat_input("메세지를 입력하세요"):
             st.session_state.messages.append(
                 {"role": "assistant", "content": last_message.content}
             )
+
+        # is_file이 있는 경우에만 모달 창 띄우기
+        if "is_file" in step:
+            if step["is_file"]:
+                upload_dialog()
+
+
+# if len(st.session_state["messages"]) > 0:
+#     previous_message2 = st.session_state["messages"][-1]["content"]
+#     if previous_message2 == "파일 분석을 위해 파일을 업로드해주세요":
+#         upload_dialog()

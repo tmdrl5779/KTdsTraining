@@ -22,7 +22,7 @@ import io
 import os
 
 
-llm = create_chat_model("openai")
+llm = create_chat_model("azure")
 
 
 class State(MessagesState):
@@ -38,6 +38,8 @@ class State(MessagesState):
     username: str
     github_token: str
     excel_obj: dict[str, str]
+    is_file: bool
+    file_summary: str
 
 
 # 노드 : 사용자의 입력에서 날짜 및 서비스 추출 -> llm 사용
@@ -142,7 +144,9 @@ def extraction_node(state: State) -> State:
             "github_commit_message": [],
             "username": "",
             "github_token": "",
+            "is_file": False,
             "excel_obj": {},
+            "file_summary": "",
             "messages": [
                 AIMessage(
                     content="서비스(구글 메일, 구글 캘린더, 깃허브)와 날짜를 추출에 실패하였습니다."
@@ -161,7 +165,9 @@ def extraction_node(state: State) -> State:
         "github_commit_message": [],
         "username": "",
         "github_token": "",
+        "is_file": False,
         "excel_obj": {},
+        "file_summary": "",
         "messages": [
             AIMessage(
                 content="🔄서비스(구글 메일, 구글 캘린더, 깃허브)와 날짜를 추출하는 중입니다..."
@@ -176,12 +182,21 @@ def conditional_service_node(state: State) -> str:
     services = state.get("services_list", [])
 
     if not services:  # 리스트가 비어있으면
-        return "summary"
+        return "is_file"
 
     # 첫 번째 서비스로 이동
     service = services[0]
 
     return service
+
+
+def conditional_analyze_query_node(state: State) -> str:
+    """analyze_query를 기반으로 다음 노드 결정"""
+    is_file = state.get("is_file")
+    if is_file:
+        return "file"
+    else:
+        return "summary"
 
 
 # 노드 : 엑셀 라우팅
@@ -336,9 +351,9 @@ def create_github_commit_message_node(state: State) -> State:
             "user_input": state["user_input"],
         }
     )
-    print("============================================================")
+    print("======== create_github_commit_message_node ==========")
     print(result)
-    print("============================================================")
+    print("======== create_github_commit_message_node ==========")
 
     result = json.loads(result)
 
@@ -375,6 +390,69 @@ def create_github_commit_message_node(state: State) -> State:
     }
 
 
+def check_file_node(state: State) -> State:
+    print("======== check_file_node ==========")
+
+    return {
+        "messages": [AIMessage(content="추가적으로 정리할 파일이 있나요?")],
+    }
+
+
+def analyze_query_node(state: State) -> State:
+    print("======== analyze_query_node ==========")
+    system_prompt = """
+    당신은 사용자의 입력에서 긍정인지 부정인지 판단하는 전문가입니다.
+
+    ##절대 따라야할 규칙##
+    - 사용자의 입력에서 긍정인지 부정인지 판단해야 합니다
+    - 반드시 yes 또는 no 로 출력해야 합니다
+    - 다른 형식이나 설명은 절대 출력하지 마세요
+
+    입력 예시:
+    "어", "맞아", "있습니다.", "있어", "있어요" 등
+
+    출력 형식 (반드시 이 형식만 사용):
+    yes 또는 no
+    """
+
+    user_prompt = """
+    사용자의 입력에서 긍정인지 부정인지 판단하여 반환해주세요.
+
+    [User Input]
+    {user_input}
+
+    """
+
+    prompt = ChatPromptTemplate.from_messages(
+        [("system", system_prompt), ("user", user_prompt)]
+    )
+    query_chain = prompt | llm | StrOutputParser()
+    result = query_chain.invoke(
+        {
+            "user_input": state["user_input"],
+        }
+    )
+
+    print(result)
+
+    if result == "yes":
+        return {
+            "is_file": True,
+        }
+    else:
+        return {
+            "is_file": False,
+        }
+
+
+def create_file_node(state: State) -> State:
+    print("======== create_file_node ==========")
+    return {
+        "messages": [AIMessage(content="파일 분석을 완료하였습니다.")],
+        "is_file": False,
+    }
+
+
 # 노드 : 요약 정리노드
 def create_summary_node(state: State) -> State:
 
@@ -383,8 +461,8 @@ def create_summary_node(state: State) -> State:
     system_prompt = """
     주어진 데이터를 정리해서 표로 만드세요.
     만약 is_first가 True 라면 표를 만들지 말고 사용자에게 입력이 잘못되어서, 구글 메일, 구글 캘린더, 깃허브 중에서 어떤 업무를 정리할지 친절하게 안내해주세요.
-    만약 is_first가 False 라면 데이터를 gmail_message, calendar_message, github_commit_message 를 정리해서 표로 만드세요.
-    각 내용은 길지 않게 요약해서 정리해야 합니다.
+    만약 is_first가 False 라면 데이터를 gmail_message, calendar_message, github_commit_message, file_summary 를 정리해서 표로 만드세요.
+    gmail_message, calendar_message, github_commit_message각 내용은 길지 않게 요약, file_summary 는 내용 그대로 한글로 번역만해서 정리해야 합니다.
     표의 열 이름은 시간, 요약, 서비스명 이며 각 데이터는 시간, 요약, 서비스명 형식으로 정리해야 합니다.
     날짜는 YYYY-MM-DD HH:MM:SS 형식으로 정리해야 합니다.
     표 외에는 다른말은 하지마세요
@@ -394,7 +472,7 @@ def create_summary_node(state: State) -> State:
     gmail_message: {gmail_message}
     calendar_message: {calendar_message}
     github_commit_message: {github_commit_message}
-
+    file_summary: {file_summary}
     """
 
     user_prompt = """
@@ -412,6 +490,7 @@ def create_summary_node(state: State) -> State:
             "gmail_message": state.get("google_mail_message", []),
             "calendar_message": state.get("google_calendar_message", []),
             "github_commit_message": state.get("github_commit_message", []),
+            "file_summary": state.get("file_summary", ""),
         }
     )
 
@@ -532,12 +611,17 @@ def create_graph():
     workflow.add_node("calendar_node", create_calendar_message_node)
     workflow.add_node("github_token_node", create_github_token_node)
     workflow.add_node("github_node", create_github_commit_message_node)
+    workflow.add_node("check_file_node", check_file_node)
+    workflow.add_node("analyze_query_node", analyze_query_node)
+    workflow.add_node("file_node", create_file_node)
     workflow.add_node("summary_node", create_summary_node)
     workflow.add_node("excel_node", create_excel_node)
     workflow.add_node("upload_excel_to_blob", upload_excel_to_blob)
 
     workflow.add_edge(START, "extraction_node")
     workflow.add_edge("github_token_node", "github_node")
+    workflow.add_edge("check_file_node", "analyze_query_node")
+    workflow.add_edge("file_node", "summary_node")
     workflow.add_edge("excel_node", "upload_excel_to_blob")
     workflow.add_edge("upload_excel_to_blob", END)
 
@@ -549,7 +633,7 @@ def create_graph():
             "gmail": "gmail_node",
             "calendar": "calendar_node",
             "github": "github_token_node",
-            "summary": "summary_node",
+            "is_file": "check_file_node",
         },
     )
 
@@ -559,7 +643,7 @@ def create_graph():
         {
             "calendar": "calendar_node",
             "github": "github_token_node",
-            "summary": "summary_node",
+            "is_file": "check_file_node",
         },
     )
 
@@ -569,7 +653,7 @@ def create_graph():
         {
             "gmail": "gmail_node",
             "github": "github_token_node",
-            "summary": "summary_node",
+            "is_file": "check_file_node",
         },
     )
 
@@ -579,6 +663,15 @@ def create_graph():
         {
             "gmail": "gmail_node",
             "calendar": "calendar_node",
+            "is_file": "check_file_node",
+        },
+    )
+
+    workflow.add_conditional_edges(
+        "analyze_query_node",
+        conditional_analyze_query_node,
+        {
+            "file": "file_node",
             "summary": "summary_node",
         },
     )
@@ -593,7 +686,9 @@ def create_graph():
     )
 
     return workflow.compile(
-        checkpointer=MemorySaver(), interrupt_after=["github_token_node"]
+        checkpointer=MemorySaver(),
+        interrupt_after=["github_token_node", "check_file_node"],
+        interrupt_before=["file_node"],
     )
 
 
@@ -604,23 +699,46 @@ def create_graph():
 
 
 def process(
-    user_input: str,
+    user_input: dict[str, str],
     graph: CompiledStateGraph,
     config: Optional[RunnableConfig] = {},
     github: bool = False,
+    file_upload: bool = False,
+    file_success: bool = False,
 ):
     """사용자 입력을 처리합니다."""
 
     # github 토큰 입력
     if github:
         graph.update_state(config, user_input)
+        print("==========   github  ==========")
         for step in graph.stream(None, config, stream_mode="values"):
-            print("==========   github  ==========")
             print("============================================================")
             print(step)
             print("============================================================")
             yield step
+    elif file_upload:
+        graph.update_state(config, user_input)
+        print("==========   file_upload   ==========")
+        for step in graph.stream(None, config, stream_mode="values"):
+            print("============================================================")
+            print(step)
+            print("============================================================")
+            yield step
+    elif file_success:
+        print("==========   file_success  ==========")
+        is_first = True
+        graph.update_state(config, user_input)
+        for step in graph.stream(None, config, stream_mode="values"):
+            print("============================================================")
+            if is_first:
+                is_first = False
+                continue
+            print(step)
+            print("============================================================")
+            yield step
     else:
+        print("!!!!!!!!!!!!!!")
         for step in graph.stream(user_input, config, stream_mode="values"):
             print("============================================================")
             print(step)

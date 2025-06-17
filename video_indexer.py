@@ -10,7 +10,6 @@ load_dotenv()
 SUBSCRIPTION_KEY = os.environ["SUBSCRIPTION_KEY"]
 LOCATION = os.environ["LOCATION"]
 ACCOUNT_ID = os.environ["ACCOUNT_ID"]
-ACCESS_TOKEN = os.environ["ACCESS_TOKEN"]
 
 
 def get_access_token():
@@ -21,6 +20,10 @@ def get_access_token():
 
 
 def find_video_id_by_name(access_token, video_name):
+    print("access_token", access_token)
+    print("video_name", video_name)
+    print("location", LOCATION)
+    print("account_id", ACCOUNT_ID)
     url = f"https://api.videoindexer.ai/{LOCATION}/Accounts/{ACCOUNT_ID}/Videos?accessToken={access_token}&name={video_name}"
     response = requests.get(url)
     videos = response.json().get("results", [])

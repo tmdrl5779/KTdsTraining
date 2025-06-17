@@ -11,6 +11,11 @@ load_dotenv()
 
 
 def create_chat_model(client: str):
+    print(os.getenv("AZURE_INFERENCE_ENDPOINT"))
+    print(os.getenv("AZURE_INFERENCE_CREDENTIAL"))
+    print(os.getenv("CHAT_MODEL"))
+    print(os.getenv("AZURE_INFERENCE_API_VERSION"))
+
     if client == "azure":
         return AzureChatOpenAI(
             azure_endpoint=os.environ["AZURE_INFERENCE_ENDPOINT"],
@@ -33,4 +38,4 @@ def test_chat_model():
     print(model.invoke(messages).content)
 
 
-test_chat_model()
+# test_chat_model()
