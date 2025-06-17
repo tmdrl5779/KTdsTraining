@@ -16,9 +16,9 @@ def get_google_service(api_name):
     creds = None
 
     # token.pickle 파일이 있으면 저장된 인증 정보를 불러옵니다
-    # if os.path.exists("token.pickle"):
-    #     with open("token.pickle", "rb") as token:
-    #         creds = pickle.load(token)
+    if os.path.exists("token.pickle"):
+        with open("token.pickle", "rb") as token:
+            creds = pickle.load(token)
 
     # 유효한 인증 정보가 없으면 새로 인증을 진행합니다
     if not creds or not creds.valid:
@@ -27,6 +27,7 @@ def get_google_service(api_name):
         else:
             flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
             creds = flow.run_local_server(port=0)
+            # creds = flow.run_console()
 
         # 인증 정보를 파일로 저장합니다
         with open("token.pickle", "wb") as token:
