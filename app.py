@@ -19,7 +19,7 @@ import time
 load_dotenv()
 
 
-st.title("🤖 업무 정리 Agent")
+st.title("📝 업무 정리 Agent 📝")
 
 # Initialize chat history
 if "messages" not in st.session_state:
@@ -54,10 +54,9 @@ def print_messages():
 
 # 사이드바 생성
 with st.sidebar:
-    st.title("📊 워크플로우 대시보드")
 
     # 그래프 섹션
-    st.subheader("워크플로우 그래프")
+    st.subheader("워크플로우 구조")
     if "graph" in st.session_state:
         st.image(
             st.session_state["graph"].get_graph().draw_mermaid_png(),
