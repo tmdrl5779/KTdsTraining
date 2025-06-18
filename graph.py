@@ -22,7 +22,7 @@ import io
 import os
 
 
-llm = create_chat_model("azure")
+llm = create_chat_model("openai")
 
 
 class State(MessagesState):
@@ -149,7 +149,7 @@ def extraction_node(state: State) -> State:
             "file_summary": "",
             "messages": [
                 AIMessage(
-                    content="서비스(구글 메일, 구글 캘린더, 깃허브)와 날짜를 추출에 실패하였습니다."
+                    content="서비스(구글 메일, 구글 캘린더, 깃허브)와 날짜를 추출에 실패하였습니다.\n\n 3개 서비스중 하나를 말씀해주세요.\n\n 예시: 오늘 업무 정리해줘\n\n 예시: 이번 주 업무 정리해줘\n\n 예시: 6/9 구글 메일 업무 정리해줘\n\n 예시: 6/9 깃허브 정리해줘\n\n 예시: 6/9 구글 캘린더 업무 정리해줘 "
                 )
             ],
         }
@@ -182,7 +182,10 @@ def conditional_service_node(state: State) -> str:
     services = state.get("services_list", [])
 
     if not services:  # 리스트가 비어있으면
-        return "is_file"
+        if state.get("is_first"):
+            return "summary"
+        else:
+            return "is_file"
 
     # 첫 번째 서비스로 이동
     service = services[0]
@@ -460,9 +463,10 @@ def create_summary_node(state: State) -> State:
 
     system_prompt = """
     주어진 데이터를 정리해서 표로 만드세요.
-    만약 is_first가 True 라면 표를 만들지 말고 사용자에게 입력이 잘못되어서, 구글 메일, 구글 캘린더, 깃허브 중에서 어떤 업무를 정리할지 친절하게 안내해주세요.
-    만약 is_first가 False 라면 데이터를 gmail_message, calendar_message, github_commit_message, file_summary 를 정리해서 표로 만드세요.
-    gmail_message, calendar_message, github_commit_message각 내용은 길지 않게 요약, file_summary 는 내용 그대로 한글로 번역만해서 정리해야 합니다.
+    *중요*만약 is_first가 True 라면 표를 만들지 말고 사용자에게 입력이 잘못되어서, 구글 메일, 구글 캘린더, 깃허브 중에서 어떤 업무를 정리할지 친절하게 안내해주세요.
+    *중요*만약 is_first가 False 라면 데이터를 gmail_message, calendar_message, github_commit_message, file_summary 를 정리해서 표로 만드세요.
+    gmail_message, calendar_message, github_commit_message각 내용은 길지 않게 요약해서 정리해야 합니다.
+    file_summary 는 요약하지 말고 내용 그대로 한글로만 번역만해서 정리해야 합니다.
     표의 열 이름은 시간, 요약, 서비스명 이며 각 데이터는 시간, 요약, 서비스명 형식으로 정리해야 합니다.
     날짜는 YYYY-MM-DD HH:MM:SS 형식으로 정리해야 합니다.
     표 외에는 다른말은 하지마세요
@@ -633,7 +637,7 @@ def create_graph():
             "gmail": "gmail_node",
             "calendar": "calendar_node",
             "github": "github_token_node",
-            "is_file": "check_file_node",
+            "summary": "summary_node",
         },
     )
 

@@ -25,17 +25,3 @@ def create_chat_model(client: str):
         )
     elif client == "openai":
         return ChatOpenAI(model=os.getenv("CHAT_MODEL"))
-
-
-def test_chat_model():
-    messages = [
-        SystemMessage(content="you are a helpful assistant"),
-        HumanMessage(content="안녕!"),
-    ]
-
-    model = create_chat_model("azure")
-
-    print(model.invoke(messages).content)
-
-
-# test_chat_model()

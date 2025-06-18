@@ -15,9 +15,12 @@ from video_indexer import (
     get_video_index,
 )
 import time
+from streamlit_option_menu import option_menu
+from datetime import datetime
 
 load_dotenv()
 
+st.set_page_config(layout="wide")
 
 st.title("📝 업무 정리 Agent 📝")
 
@@ -29,13 +32,16 @@ if "graph" not in st.session_state:
     st.session_state["graph"] = gh.create_graph()
 
 if "llm" not in st.session_state:
-    st.session_state["llm"] = create_chat_model("azure")
+    st.session_state["llm"] = create_chat_model("openai")
 
 if "config" not in st.session_state:
     st.session_state["config"] = {"configurable": {"thread_id": "1"}}
 
 if "access_token" not in st.session_state:
     st.session_state["access_token"] = None
+
+if "summary" not in st.session_state:
+    st.session_state["summary"] = []
 
 
 # 새로운 메시지를 추가
@@ -54,28 +60,16 @@ def print_messages():
 
 # 사이드바 생성
 with st.sidebar:
-
-    # 그래프 섹션
-    st.subheader("워크플로우 구조")
-    if "graph" in st.session_state:
-        st.image(
-            st.session_state["graph"].get_graph().draw_mermaid_png(),
-            caption="현재 워크플로우 구조",
-            use_container_width=True,
-        )
+    selected = option_menu(
+        "메뉴",
+        ["채팅", "문서 정리 결과", "설정"],
+        icons=["chat", "file-earmark-text"],
+        menu_icon="cast",
+        default_index=0,
+    )
 
     # 구분선
     st.divider()
-
-    # 액세스 토큰 입력 섹션
-    st.subheader("Azure Video Indexer 설정")
-    access_token = st.text_input("액세스 토큰을 입력하세요", type="password")
-    if st.button("토큰 저장"):
-        if access_token:
-            st.session_state["access_token"] = access_token
-            st.success("액세스 토큰이 저장되었습니다!")
-        else:
-            st.error("액세스 토큰을 입력해주세요!")
 
     # 구분선
     st.divider()
@@ -206,50 +200,102 @@ def upload_dialog():
             st.rerun()
 
 
-print_messages()
+if selected == "문서 정리 결과":
+    summary_list = st.session_state.get("summary", [])
+    if summary_list:
+        options = [(f"{i+1}. {s['date']}") for i, s in enumerate(summary_list)]
+        selected_idx = st.selectbox(
+            "정리된 문서 선택",
+            range(len(summary_list)),
+            format_func=lambda i: options[i],
+        )
+        st.markdown(summary_list[selected_idx]["final_summary"])
+    else:
+        st.info("아직 정리된 문서가 없습니다.")
 
-# Handle user input
-if user_input := st.chat_input("메세지를 입력하세요"):
-    graph = st.session_state["graph"]
+if selected == "설정":
+    col1, col2 = st.columns(2)
+    # 액세스 토큰 입력 섹션
+    with col1:
+        st.subheader("Azure Video Indexer 설정")
+        access_token = st.text_input("액세스 토큰을 입력하세요", type="password")
+        if st.button("토큰 저장"):
+            if access_token:
+                st.session_state["access_token"] = access_token
+                st.success("액세스 토큰이 저장되었습니다!")
+            else:
+                st.error("액세스 토큰을 입력해주세요!")
 
-    # 사용자 입력
-    st.chat_message("user", avatar="🧑‍💻").markdown(user_input)
-    st.session_state.messages.append({"role": "user", "content": user_input})
-
-    input = {
-        "user_input": user_input,
-        "messages": [HumanMessage(content=user_input)],
-    }
-
-    github = False
-    file_upload = False
-
-    if len(st.session_state["messages"]) > 1:
-        previous_message = st.session_state["messages"][-2]["content"]
-        if (
-            previous_message
-            == "깃허브 사용자 ID와 토큰을 입력해주세요. ex)username, ghp_123..."
-        ):
-            github = True
-        elif previous_message == "추가적으로 정리할 파일이 있나요?":
-            file_upload = True
-
-    # process 함수를 사용하여 상태 변화를 스트리밍
-    for step in gh.process(
-        input, graph, st.session_state["config"], github=github, file_upload=file_upload
-    ):
-        # messages의 마지막 메시지를 표시
-        last_message = step["messages"][-1]
-        if last_message.type == "ai":
-            st.chat_message("assistant", avatar="🤖").markdown(last_message.content)
-            st.session_state.messages.append(
-                {"role": "assistant", "content": last_message.content}
+    # 그래프 섹션
+    with col2:
+        st.subheader("워크플로우 구조")
+        if "graph" in st.session_state:
+            st.image(
+                st.session_state["graph"].get_graph().draw_mermaid_png(),
+                caption="현재 워크플로우 구조",
+                use_container_width=True,
             )
 
-        # is_file이 있는 경우에만 모달 창 띄우기
-        if "is_file" in step:
-            if step["is_file"]:
-                upload_dialog()
+if selected == "채팅":
+    print_messages()
+
+    # Handle user input
+    if user_input := st.chat_input("메세지를 입력하세요"):
+        graph = st.session_state["graph"]
+
+        # 사용자 입력
+        st.chat_message("user", avatar="🧑‍💻").markdown(user_input)
+        st.session_state.messages.append({"role": "user", "content": user_input})
+
+        input = {
+            "user_input": user_input,
+            "messages": [HumanMessage(content=user_input)],
+        }
+
+        github = False
+        file_upload = False
+
+        if len(st.session_state["messages"]) > 1:
+            previous_message = st.session_state["messages"][-2]["content"]
+            if (
+                previous_message
+                == "깃허브 사용자 ID와 토큰을 입력해주세요. ex)username, ghp_123..."
+            ):
+                github = True
+            elif previous_message == "추가적으로 정리할 파일이 있나요?":
+                file_upload = True
+
+        # process 함수를 사용하여 상태 변화를 스트리밍
+        for step in gh.process(
+            input,
+            graph,
+            st.session_state["config"],
+            github=github,
+            file_upload=file_upload,
+        ):
+            # messages의 마지막 메시지를 표시
+            last_message = step["messages"][-1]
+            if last_message.type == "ai":
+                st.chat_message("assistant", avatar="🤖").markdown(last_message.content)
+                st.session_state.messages.append(
+                    {"role": "assistant", "content": last_message.content}
+                )
+
+            if "final_summary" in step:
+                if "is_first" in step:
+                    if not step["is_first"] and step["final_summary"]:
+                        print("<<<<<<<<<<<<<<<<<<<<<<<")
+                        st.session_state["summary"].append(
+                            {
+                                "date": datetime.now().strftime("%Y-%m-%d-%H-%M-%S"),
+                                "final_summary": step["final_summary"],
+                            }
+                        )
+
+            # is_file이 있는 경우에만 모달 창 띄우기
+            if "is_file" in step:
+                if step["is_file"]:
+                    upload_dialog()
 
 
 # if len(st.session_state["messages"]) > 0:
