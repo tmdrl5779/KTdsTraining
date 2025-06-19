@@ -63,7 +63,9 @@ def get_calendar_events(service, start_date=None, end_date=None):
                 start = start_dt.strftime("%Y-%m-%d %H:%M:%S")
             else:  # 종일 일정인 경우
                 # event_obj["start"] = "종일"
-                start = "종일"
+                start = start_date.replace(
+                    hour=0, minute=0, second=0, microsecond=0
+                ).strftime("%Y-%m-%d %H:%M:%S")
 
             # 종료 시간
             end = event["end"].get("dateTime", event["end"].get("date"))
@@ -81,7 +83,9 @@ def get_calendar_events(service, start_date=None, end_date=None):
 
             else:  # 종일 일정인 경우
                 # event_obj["end"] = "종일"
-                end = "종일"
+                end = end_date.replace(
+                    hour=23, minute=59, second=59, microsecond=999999
+                ).strftime("%Y-%m-%d %H:%M:%S")
 
             event_obj["date"] = start + " ~ " + end
 
