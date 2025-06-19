@@ -43,7 +43,7 @@ def delete_video(access_token, video_id):
 
 
 def upload_video(access_token, video_file):
-    url = f"https://api.videoindexer.ai/{LOCATION}/Accounts/{ACCOUNT_ID}/Videos?accessToken={access_token}"
+    url = f"https://api.videoindexer.ai/{LOCATION}/Accounts/{ACCOUNT_ID}/Videos?accessToken={access_token}&name={video_file.name}"
     files = {"file": (video_file.name, video_file, "video/mp4")}
     response = requests.post(url, files=files)
     return response.json()
