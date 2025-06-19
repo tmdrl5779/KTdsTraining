@@ -94,6 +94,8 @@ def upload_dialog():
         "file_summary": "",
     }
 
+    st.success(f"uploaded_file: {uploaded_file}")
+
     if uploaded_file is not None:
 
         st.info("Azure Video Indexer에 영상을 업로드 중입니다...")
@@ -144,7 +146,6 @@ def upload_dialog():
             # 테스트트
 
             time.sleep(1)
-            st.session_state.messages.append({"role": "assistant", "content": response})
 
             video_id = response["id"]
             # 인덱싱이 끝날 때까지 대기
