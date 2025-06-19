@@ -34,7 +34,7 @@ if "graph" not in st.session_state:
     st.session_state["graph"] = gh.create_graph()
 
 if "llm" not in st.session_state:
-    st.session_state["llm"] = create_chat_model("openai")
+    st.session_state["llm"] = create_chat_model("azure")
 
 if "config" not in st.session_state:
     st.session_state["config"] = {"configurable": {"thread_id": "1"}}

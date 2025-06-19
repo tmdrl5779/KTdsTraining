@@ -22,7 +22,7 @@ import io
 import os
 
 
-llm = create_chat_model("openai")
+llm = create_chat_model("azure")
 
 
 class State(MessagesState):
