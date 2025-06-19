@@ -105,6 +105,7 @@ def upload_dialog():
             )
             st.chat_message("assistant", avatar="🤖").markdown(error_message)
 
+            k = 0
             for step in gh.process(
                 input, graph, st.session_state["config"], file_success=True
             ):
@@ -114,6 +115,20 @@ def upload_dialog():
                     st.session_state.messages.append(
                         {"role": "assistant", "content": last_message.content}
                     )
+                if "final_summary" in step and k != 0:
+                    if "is_first" in step:
+                        print(step["is_first"], step["final_summary"])
+                        if not step["is_first"] and step["final_summary"]:
+                            print("<<<<<<<<<<<<<<<<<<<<<<<")
+                            st.session_state["summary"].append(
+                                {
+                                    "date": datetime.now().strftime(
+                                        "%Y-%m-%d-%H-%M-%S"
+                                    ),
+                                    "final_summary": step["final_summary"],
+                                }
+                            )
+                k += 1
             st.rerun()
 
         try:
@@ -127,14 +142,14 @@ def upload_dialog():
 
             # 인덱싱이 끝날 때까지 대기
             progress = st.progress(0)
-            # for i in range(20):
             i = 0
             while True:
-                time.sleep(10)
+                time.sleep(5)
                 index = get_video_index(access_token, video_id)
                 state = index["state"]
                 print(state)
-                progress.progress((i + 1) * 5)
+                if i < 15:
+                    progress.progress((i + 1) * 5)
                 if state == "Processed":
                     break
                 i += 1
@@ -151,11 +166,12 @@ def upload_dialog():
             j = 0
 
             while True:
-                time.sleep(10)
+                time.sleep(5)
                 summary = get_summary(access_token, video_id, summary_id)
                 state = summary["state"]
                 print(state)
-                progress.progress((j + 1) * 5)
+                if j < 15:
+                    progress.progress((i + 1) * 5)
                 if state == "Processed":
                     break
                 j += 1
@@ -169,6 +185,7 @@ def upload_dialog():
             file_summary = summary["summary"]
             input["file_summary"] = file_summary
 
+            k = 0
             for step in gh.process(
                 input, graph, st.session_state["config"], file_success=True
             ):
@@ -180,13 +197,30 @@ def upload_dialog():
                         {"role": "assistant", "content": last_message.content}
                     )
 
+                if "final_summary" in step and k != 0:
+                    if "is_first" in step:
+                        print(step["is_first"], step["final_summary"])
+                        if not step["is_first"] and step["final_summary"]:
+                            print("<<<<<<<<<<<<<<<<<<<<<<<")
+                            st.session_state["summary"].append(
+                                {
+                                    "date": datetime.now().strftime(
+                                        "%Y-%m-%d-%H-%M-%S"
+                                    ),
+                                    "final_summary": step["final_summary"],
+                                }
+                            )
+                k += 1
+
             st.rerun()
         except Exception as e:
-            error_message = "파일 분석 중 오류가 발생했습니다."
+            error_message = f"파일 분석 중 오류가 발생했습니다. {e}"
             st.session_state.messages.append(
                 {"role": "assistant", "content": error_message}
             )
             st.chat_message("assistant", avatar="🤖").markdown(error_message)
+
+            k = 0
 
             for step in gh.process(
                 input, graph, st.session_state["config"], file_success=True
@@ -197,6 +231,20 @@ def upload_dialog():
                     st.session_state.messages.append(
                         {"role": "assistant", "content": last_message.content}
                     )
+                if "final_summary" in step and k != 0:
+                    if "is_first" in step:
+                        print(step["is_first"], step["final_summary"])
+                        if not step["is_first"] and step["final_summary"]:
+                            print("<<<<<<<<<<<<<<<<<<<<<<<")
+                            st.session_state["summary"].append(
+                                {
+                                    "date": datetime.now().strftime(
+                                        "%Y-%m-%d-%H-%M-%S"
+                                    ),
+                                    "final_summary": step["final_summary"],
+                                }
+                            )
+                k += 1
             st.rerun()
 
 
@@ -265,6 +313,7 @@ if selected == "채팅":
             elif previous_message == "추가적으로 정리할 파일이 있나요?":
                 file_upload = True
 
+        k = 0
         # process 함수를 사용하여 상태 변화를 스트리밍
         for step in gh.process(
             input,
@@ -281,8 +330,9 @@ if selected == "채팅":
                     {"role": "assistant", "content": last_message.content}
                 )
 
-            if "final_summary" in step:
+            if "final_summary" in step and k != 0:
                 if "is_first" in step:
+                    print(step["is_first"], step["final_summary"])
                     if not step["is_first"] and step["final_summary"]:
                         print("<<<<<<<<<<<<<<<<<<<<<<<")
                         st.session_state["summary"].append(
@@ -291,7 +341,7 @@ if selected == "채팅":
                                 "final_summary": step["final_summary"],
                             }
                         )
-
+            k += 1
             # is_file이 있는 경우에만 모달 창 띄우기
             if "is_file" in step:
                 if step["is_file"]:
