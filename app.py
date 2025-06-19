@@ -17,6 +17,8 @@ from video_indexer import (
 import time
 from streamlit_option_menu import option_menu
 from datetime import datetime
+import traceback
+
 
 load_dotenv()
 
@@ -137,9 +139,14 @@ def upload_dialog():
             if existing_video_id:
                 delete_video(access_token, existing_video_id)
 
-            video_id = upload_video(access_token, uploaded_file)
+            response = upload_video(access_token, uploaded_file)
             st.success("업로드 완료! 영상 분석 중... (최대 1~2분 소요)")
+            # 테스트트
 
+            time.sleep(1)
+            st.session_state.messages.append({"role": "assistant", "content": response})
+
+            video_id = response["id"]
             # 인덱싱이 끝날 때까지 대기
             progress = st.progress(0)
             i = 0
@@ -171,7 +178,7 @@ def upload_dialog():
                 state = summary["state"]
                 print(state)
                 if j < 15:
-                    progress.progress((i + 1) * 5)
+                    progress.progress((j + 1) * 5)
                 if state == "Processed":
                     break
                 j += 1
@@ -214,7 +221,8 @@ def upload_dialog():
 
             st.rerun()
         except Exception as e:
-            error_message = f"파일 분석 중 오류가 발생했습니다. {e}"
+            full_traceback = traceback.format_exc()
+            error_message = f"파일 분석 중 오류가 발생했습니다. {e}\n\n{full_traceback}"
             st.session_state.messages.append(
                 {"role": "assistant", "content": error_message}
             )

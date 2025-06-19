@@ -466,7 +466,7 @@ def create_summary_node(state: State) -> State:
     *중요*만약 is_first가 True 라면 표를 만들지 말고 사용자에게 입력이 잘못되어서, 구글 메일, 구글 캘린더, 깃허브 중에서 어떤 업무를 정리할지 친절하게 안내해주세요.
     *중요*만약 is_first가 False 라면 데이터를 gmail_message, calendar_message, github_commit_message, file_summary 를 정리해서 표로 만드세요.
     gmail_message, calendar_message, github_commit_message각 내용은 길지 않게 요약해서 정리해야 합니다.
-    file_summary 는 요약하지 말고 내용 그대로 **한글로만 번역만**해서 정리해야 합니다.
+    file_summary 는 요약하지 말고 내용 **한글로만 번역만**해서 정리해야 합니다.
     표의 열 이름은 시간, 요약, 서비스명 이며 각 데이터는 시간, 요약, 서비스명 형식으로 정리해야 합니다.
     날짜는 YYYY-MM-DD HH:MM:SS 형식으로 정리해야 합니다.
     표 외에는 다른말은 하지마세요
